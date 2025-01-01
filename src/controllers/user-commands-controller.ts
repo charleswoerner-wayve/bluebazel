@@ -78,8 +78,7 @@ export class UserCommandsController {
     private static PICK_STATE_KEY: string = "userCommandsController.pickStateMap";
 
     public async runCustomTask(command: string): Promise<void> {
-        const pickStateMap: PickStateMap = this.workspaceStateManager.get(UserCommandsController.PICK_STATE_KEY, {});
-        const resolver = new this.Resolver(this.bazelTargetManager, this.configurationManager, this.shellService, pickStateMap);
+        const resolver = new this.Resolver(this.bazelTargetManager, this.configurationManager, this.shellService, this.workspaceStateManager);
         let completeCommand = resolver.resolveKeywords(command);
         return showProgress(`Running ${completeCommand}`, async (cancellationToken) => {
             try {
@@ -88,8 +87,6 @@ export class UserCommandsController {
                 this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken);
             } catch (error) {
                 vscode.window.showErrorMessage(`Error running custom task: ${error}`);
-            } finally {
-                this.workspaceStateManager.update(UserCommandsController.PICK_STATE_KEY, pickStateMap);
             }
         });
     }
@@ -108,7 +105,7 @@ export class UserCommandsController {
             private bazelTargetManager: BazelTargetManager,
             private configurationManager: ConfigurationManager,
             private shellService: ShellService,
-            private pickStateMap: PickStateMap
+            private workspaceStateManager: WorkspaceStateManager
         ) { }
 
         protected resolveKeyword(keyword: string): string {
@@ -213,13 +210,7 @@ export class UserCommandsController {
                         const extArgs = match[2];
                         let evalRes = '';
                         if (extCommand === UserCommandsController.EXTENSION_COMMANDS.multipick) {
-                            let state = this.pickStateMap[output];
-                            const input = await this.buildPickList(extArgs, (label) => state[label] ?? false);
-                            const labels = await this.extPickMany(input);
-                            evalRes = labels.join("\n");
-                            state = {};
-                            labels.forEach((label) => state[label] = true);
-                            this.pickStateMap[output] = state;
+                            evalRes = await this.persistentExtPickMany(output, extArgs);
                         } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
                             const input = await this.buildPickList(extArgs, (label) => false);
                             evalRes = await this.extPick(input);
@@ -233,6 +224,24 @@ export class UserCommandsController {
                 return Promise.reject(error);
             }
             return output;
+        }
+
+        private async persistentExtPickMany(output: string, extArgs: string) : Promise<string> {
+            const pickStateMap: PickStateMap = this.workspaceStateManager.get(UserCommandsController.PICK_STATE_KEY, {});
+            try {
+                let state: PickStateRecord = pickStateMap[output];
+                const input = await this.buildPickList(extArgs, (label) => state[label] ?? false);
+                const labels = await this.extPickMany(input);
+                const evalRes = labels.join("\n");
+                state = {};
+                labels.forEach((label) => state[label] = true);
+                pickStateMap[output] = state;
+                return evalRes;
+            } catch (error) {
+                return Promise.reject(error);
+            } finally {
+                this.workspaceStateManager.update(UserCommandsController.PICK_STATE_KEY, pickStateMap);
+            }
         }
 
         public resolveKeywords(input: string): string {
@@ -270,8 +279,7 @@ export class UserCommandsController {
                                 evalRes = this.cache.get(cmd.name) ?? '';
                             } else {
                                 const resolvedCmd = await this.resolveCommand(cmd.command);
-                                const cmdRes = await this.shellService.runShellCommand(resolvedCmd);
-                                evalRes = cmdRes.stdout;
+                                evalRes = await this.runShellCommand(resolvedCmd, cmd);
                                 this.cache.set(cmd.name, evalRes);
                             }
                         }
@@ -294,6 +302,26 @@ export class UserCommandsController {
             } catch (error) {
                 return Promise.reject(error);
             }
+        }
+
+        private async runShellCommand(resolvedCmd: string, cmd: ShellCommand) : Promise<string> {
+            const compileKey = "userCommandsController.compiledShellCommands";
+            const compiledShellCommands: Record<string, string> = this.workspaceStateManager.get(compileKey, {});
+            if (cmd.compiled) {
+                if (compiledShellCommands.hasOwnProperty(resolvedCmd)) {
+                    return compiledShellCommands[resolvedCmd];
+                }
+            } else {
+                delete compiledShellCommands[resolvedCmd];
+            }
+            const outputs = await this.shellService.runShellCommand(resolvedCmd);
+            const cmdOutput = outputs.stdout;
+            if (cmd.compiled) {
+                // compile result to workspaceState
+                compiledShellCommands[resolvedCmd] = cmdOutput;
+            }
+            this.workspaceStateManager.update(compileKey, compiledShellCommands);
+            return cmdOutput;
         }
     }
 }

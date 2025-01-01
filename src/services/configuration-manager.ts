@@ -89,20 +89,23 @@ export class ShellCommand {
     name: string;
     command: string;
     memoized: boolean;
+    compiled: boolean;
     public readonly id: string;
 
-    constructor(data: { 'name': string, 'command': string, 'memoized': boolean }) {
+    constructor(data: { 'name': string, 'command': string, 'memoized': boolean, 'compiled': boolean }) {
         this.name = data.name;
         this.command = data.command;
         this.memoized = data.memoized ?? false;
+        this.compiled = data.compiled ?? false;
         this.id = this.name;
     }
 
-    toJSON(): { 'name': string, 'command': string, 'memoized': boolean } {
+    toJSON(): { 'name': string, 'command': string, 'memoized': boolean, 'compiled': boolean } {
         return {
             'name': this.name,
             'command': this.command,
-            'memoized': this.memoized
+            'memoized': this.memoized,
+            'compiled': this.compiled
         };
     }
 }

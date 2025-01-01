@@ -69,3 +69,7 @@ Fix bug where no output from quickpik is returned.
 
 Support MultiPick quickpik extension.
 Support memoizing shellCommand outputs for repeated use in a button command.
+
+## 1.1.1
+
+Support for 'compiled' (stashed) shell command output for expensive commands.
