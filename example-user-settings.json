@@ -14,7 +14,7 @@
                 },
                 {
                     "title": "Run Target...",
-                    "command": "bazel test <confirmedTestTargetAsLabel> --build_tests_only --test_timeout=1500 <confirmedExtraPyTestArgList> <testCaseTestArgList>",
+                    "command": "bazel test <confirmedTestTargetList> --build_tests_only --test_timeout=1500 <confirmedExtraPyTestArgList> <testCaseTestArgList>",
                     "description": "Run specific test case",
                     "tooltip": "Run specific test case with `bazel test`",
                     "methodName": "bluebazel.runPyTestCase"
@@ -35,6 +35,7 @@
         {
             "name": "confirmedTestTargetList",
             "command": "echo -n \"[Pick(<testTargetList>)]\"",
+            "memoized": true
         },
         {
             "name": "testTargetAsLabel",
@@ -47,7 +48,8 @@
         },
         {
             "name": "testCaseListHelper",
-            "command": "bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress <confirmedTestTargetAsLabel> -- --collect-only -qq <confirmedExtraPyTestArgs> --disable-warnings --color=no | grep -E '(.*?/).+::.+'",
+            "command": "bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress <confirmedTestTargetList> -- --collect-only -qq <confirmedExtraPyTestArgs> --disable-warnings --color=no | grep -E '(.*?/).+::.+'",
+            "compiled": true
         },
         {
             "name": "Test_Args",
@@ -64,8 +66,8 @@
         },
         {
             "name": "testCaseTestArgList",
-            "command": "echo -n \"[TreePick(<testCaseListHelper>)]\" | awk '{print \"--test_arg=\\\"\"$1\"\\\"\"}' | tr \"\n\" \" \"",
-            "compiled": false
+            "command": "echo -n \"[PyTestSuite(<testCaseListHelper>)]\" | awk '{print \"--test_arg=\\\"\"$1\"\\\"\"}' | tr \"\n\" \" \"",
+            "compiled": true
         }
     ],
     "bluebazel.fetchTargetsUsingQuery": true

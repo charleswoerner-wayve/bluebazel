@@ -63,9 +63,9 @@ export class UserCommandsController {
     };
 
     private static EXTENSION_COMMANDS = {
-        treepick: 'TreePick',
         multipick: 'MultiPick',
         pick: 'Pick',
+        pytestsuite: 'PyTestSuite',
         input: 'Input'
     };
 
@@ -171,7 +171,7 @@ export class UserCommandsController {
             }
         }
 
-        private async buildTestCaseTree(input: string) : Promise<RootNode> {
+        private async buildPyTestCaseTree(input: string) : Promise<RootNode> {
             // Evaluate the inner command of the pick
             const output = await this.resolveCommands(input);
 
@@ -317,9 +317,9 @@ export class UserCommandsController {
                         const extCommand = match[1];
                         const extArgs = match[2];
                         let evalRes = '';
-                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.treepick) {
+                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pytestsuite) {
                             let state = this.pickStateMap[output] ?? {};
-                            const rootNode: RootNode = await this.buildTestCaseTree(extArgs);
+                            const rootNode: RootNode = await this.buildPyTestCaseTree(extArgs);
                             const paths: Set<string> = await this.extPickTree(rootNode, (node: TreeNode) => state[node.getPath()] ?? false);
                             evalRes = [...paths].join("\n");
                             state = {};

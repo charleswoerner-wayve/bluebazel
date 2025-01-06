@@ -69,3 +69,8 @@ Fix bug where no output from quickpik is returned.
 
 Support MultiPick quickpik extension.
 Support memoizing shellCommand outputs for repeated use in a button command.
+
+## 1.2.0
+
+Support PyTestSuite quickpik extension (PyTest specific).
+

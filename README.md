@@ -198,6 +198,7 @@ Here are additional keywords to receive user input at the time of the execution:
 1. [Pick(`arg`)]: This shows an item list for the user to choose one from. `arg` must be a command that returns multiline string where each line corresponds to an item.
 2. [Input()]: This receives a plain string input from the user.
 3. [MultiPick(`arg`)]: Similar to `Pick`, this shows an item list for the user to choose one or more from.  Where as `Pick` returns a single selection, `MultiPick` returns all selections, one per line (output is one selection per line, separated by a "\n").
+4. [PyTestSuite(`arg`)]: Similar to both `Pick` and `MultiPick`, but this will produce a hierarchical tree of items with the ability to select/deselect items at various levels with the selection cascading through the tree.
 
 ### A complete example
 
