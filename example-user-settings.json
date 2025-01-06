@@ -60,7 +60,7 @@
         },
         {
             "name": "confirmedExtraPyTestArgList",
-            "command": "echo -n \"<confirmedExtraPyTestArgs>\" | perl -pe 's/(\\S+)/--test_arg=\\\"$1\\\" /g'",
+            "command": "echo -n \"<confirmedExtraPyTestArgs>\" | perl -pe 's/(\\S+)/--test_arg=\\\"$1\\\" /g'"
         },
         {
             "name": "testCaseTestArgList",
