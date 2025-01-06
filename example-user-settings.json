@@ -1,0 +1,72 @@
+{
+    "makefile.configureOnOpen": true,
+    "redhat.telemetry.enabled": false,
+    "bluebazel.customButtons": [
+        {
+            "title": "PyTest",
+            "buttons": [
+                {
+                    "title": "Run Target",
+                    "command": "bazel test <confirmedTestTargetList> --build_tests_only --test_timeout=1500 <confirmedExtraPyTestArgList>",
+                    "description": "Test in sandbox",
+                    "tooltip": "Run target with `bazel test`",
+                    "methodName": "bluebazel.runPyTest"
+                },
+                {
+                    "title": "Run Target...",
+                    "command": "bazel test <confirmedTestTargetAsLabel> --build_tests_only --test_timeout=1500 <confirmedExtraPyTestArgList> <testCaseTestArgList>",
+                    "description": "Run specific test case",
+                    "tooltip": "Run specific test case with `bazel test`",
+                    "methodName": "bluebazel.runPyTestCase"
+                }
+            ]
+        }
+    ],
+    "bluebazel.shellCommands": [
+        {
+            "name": "testTargetListHelper",
+            "command": "echo -n ${bluebazel.testTarget} | perl -pe 's|^bazel-bin(/.*?)/([^/]+)$|/$1/...|'"
+        },
+        {
+            "name": "testTargetList",
+            "command": "bazel query \"tests(//wayve/...)\" | grep -E 'py_test$'",
+            "compiled": true
+        },
+        {
+            "name": "confirmedTestTargetList",
+            "command": "echo -n \"[Pick(<testTargetList>)]\"",
+        },
+        {
+            "name": "testTargetAsLabel",
+            "command": "echo -n ${bluebazel.testTarget} | perl -pe 's|^bazel-bin(/.*?)/([^/]+)$|/$1:$2|'"
+        },
+        {
+            "name": "confirmedTestTargetAsLabel",
+            "command": "echo -n \"[Input(<testTargetAsLabel>)]\"",
+            "memoized": true
+        },
+        {
+            "name": "testCaseListHelper",
+            "command": "bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress <confirmedTestTargetAsLabel> -- --collect-only -qq <confirmedExtraPyTestArgs> --disable-warnings --color=no | grep -E '(.*?/).+::.+'",
+        },
+        {
+            "name": "Test_Args",
+            "command": "echo -n \"${bluebazel.bazelTestArgs}\""
+        },
+        {
+            "name": "confirmedExtraPyTestArgs",
+            "command": "echo -n \"[Input(<Test_Args>)]\"",
+            "memoized": true
+        },
+        {
+            "name": "confirmedExtraPyTestArgList",
+            "command": "echo -n \"<confirmedExtraPyTestArgs>\" | perl -pe 's/(\\S+)/--test_arg=\\\"$1\\\" /g'",
+        },
+        {
+            "name": "testCaseTestArgList",
+            "command": "echo -n \"[TreePick(<testCaseListHelper>)]\" | awk '{print \"--test_arg=\\\"\"$1\"\\\"\"}' | tr \"\n\" \" \"",
+            "compiled": false
+        }
+    ],
+    "bluebazel.fetchTargetsUsingQuery": true
+}
