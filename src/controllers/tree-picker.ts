@@ -1,45 +1,3 @@
-
-/*
-const transformedLabels = labels.map((label: string) => {
-    return label.replace(/\.py(::[^:\/]+)$/, ".py/$1");
-});
-
-const rootNode = new TreeNode("/", "", null);
-
-// add nodes to tree
-
-for (const label of transformedLabels) {
-
-    let node = rootNode;
-
-    let path = "";
-    for (const part of label.split("/")) {
-        let child;
-        path += part;
-        if (!node.hasChild(part)) {
-            child = node.addChild(path, part);
-        } else {
-            child = node.getChild(part);
-        }
-o        path += "/";
-        node = child;
-    }
-    node.setTestCase();
-}
-
-rootNode.dfs((child: TreeNode) => {
-    if (child.isTestCase) {
-        console.log(`[ ]  \u2937${child.value}`);
-        return false;
-    } else {
-        if (child.isTest) {
-            console.log(`[ ] ${child.path}`);
-        }
-        return true;
-    }
-});
-*/
-
 import { QuickPickItem } from 'vscode';
 
 export interface QuickPickItemWithTreeNode extends QuickPickItem {
@@ -86,6 +44,18 @@ export class TreeNode {
         }
 
         return this.addChild(edge);
+    }
+
+    public getTestDepth() : number {
+        let depth = 0;
+        let ptr: any = this;
+        while (ptr !== null && (ptr.isTest || ptr.isTestCase)) {
+            if (ptr.isTestCase || ptr.isTest) {
+                depth++;
+            }
+            ptr = ptr.parent;
+        }
+        return depth;
     }
 
     public createPathToTestCase(path: string) : TreeNode {
@@ -171,3 +141,44 @@ export class RootNode extends TreeNode {
         return "";
     }
 }
+
+/*
+const transformedLabels = labels.map((label: string) => {
+    return label.replace(/\.py(::[^:\/]+)$/, ".py/$1");
+});
+
+const rootNode = new TreeNode("/", "", null);
+
+// add nodes to tree
+
+for (const label of transformedLabels) {
+
+    let node = rootNode;
+
+    let path = "";
+    for (const part of label.split("/")) {
+        let child;
+        path += part;
+        if (!node.hasChild(part)) {
+            child = node.addChild(path, part);
+        } else {
+            child = node.getChild(part);
+        }
+o        path += "/";
+        node = child;
+    }
+    node.setTestCase();
+}
+
+rootNode.dfs((child: TreeNode) => {
+    if (child.isTestCase) {
+        console.log(`[ ]  \u2937${child.value}`);
+        return false;
+    } else {
+        if (child.isTest) {
+            console.log(`[ ] ${child.path}`);
+        }
+        return true;
+    }
+});
+*/

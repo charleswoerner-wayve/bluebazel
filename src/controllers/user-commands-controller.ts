@@ -176,13 +176,21 @@ export class UserCommandsController {
             const output = await this.resolveCommands(input);
 
             // specific to pytest format
-            const transformedLabels = output.split('\n').map((label: string) => {
-                return label.replace(/\.py(::[^:\/]+)$/, ".py/$1");
+            const transformedLabels: string[][] = output.split('\n').map((label: string) => {
+                //return label.replace(/(::[^:\/]+)/g, "/$1");
+                const [file, ...parts] = label.split("::");
+                return [file, ...parts.map((part) => `::${part}`)];
             });
 
             const rootNode = new RootNode();
             for (const label of transformedLabels) {
-                rootNode.createPathToTestCase(label);
+                const [file, ...paths] = label;
+                const testFileNode = rootNode.getOrAddChild(file);
+                let node = testFileNode;
+                for (const path of paths) {
+                    node = node.createPathToTestCase(path);
+                }
+                //rootNode.createPathToTestCase(label);
             }
             return Promise.resolve(rootNode);
         }
@@ -190,12 +198,13 @@ export class UserCommandsController {
         private flattenTestCaseTree(rootNode: RootNode, picker: (node: TreeNode) => boolean): QuickPickItemWithTreeNode[] {
             // Make a list of the output
             const outputList: QuickPickItemWithTreeNode[] = [];
-
+            const indent = "\u0020".repeat(4)
+            const arrow = "\u2937";
             try {
                 rootNode.dfs((node: TreeNode): boolean => {
                     if (node.isTest || node.isTestCase) {
                         node.item = {
-                            'label': (node.isTestCase ? `\u2937${node.value}` : node.getPath()),
+                            'label': (node.isTestCase ? `${indent.repeat(node.getTestDepth())}${arrow}${node.value}` : node.getPath()),
                             'picked': picker(node),
                             'node': node,
                         };
