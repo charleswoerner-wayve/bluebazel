@@ -53,6 +53,7 @@ export class TreeNode {
     edges: string[];
     parent: TreeNode|null;
     isTest: boolean;
+    item?: QuickPickItemWithTreeNode;
 
     constructor(value: string, parent: TreeNode|null) {
         this.value = value;
@@ -126,8 +127,21 @@ export class TreeNode {
         return this;
     }
 
+    public setItem(item: QuickPickItemWithTreeNode) {
+        this.item = item;
+        return this;
+    }
+
     public isRootNote() : boolean {
         return false;
+    }
+
+    public findRoot(visitor: (node: TreeNode) => void) {
+        let ptr = this.parent;
+        while (ptr !== null) {
+            visitor(ptr);
+            ptr = ptr.parent;
+        }
     }
 
     public dfs(visitor: (node: TreeNode) => boolean) {
@@ -135,9 +149,9 @@ export class TreeNode {
     }
 
     static _dfs(node: TreeNode, visitor: (node: TreeNode) => boolean) {
-        if (visitor(node)) {
-            for (const edge of node.edges.sort()) {
-                const child = node.getChild(edge);
+        for (const edge of node.edges.sort()) {
+            const child = node.getChild(edge);
+            if (visitor(child)) {
                 TreeNode._dfs(child, visitor);
             }
         }

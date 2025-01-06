@@ -193,10 +193,13 @@ export class UserCommandsController {
 
             try {
                 rootNode.dfs((node: TreeNode): boolean => {
-                    if (node.isTest) {
-                        outputList.push({ 'label': node.getPath(), 'picked': picker(node), 'node': node });
-                    } else if (node.isTestCase) {
-                        outputList.push({ 'label': `\u2937${node.value}`, 'picked': picker(node), 'node': node });
+                    if (node.isTest || node.isTestCase) {
+                        node.item = {
+                            'label': (node.isTestCase ? `\u2937${node.value}` : node.getPath()),
+                            'picked': picker(node),
+                            'node': node,
+                        };
+                        outputList.push(node.item);
                     }
                     return true;
                 });
@@ -233,16 +236,25 @@ export class UserCommandsController {
                             } else if (unchecked.has(node.getPath())) {
                                 item.picked = false;
                             }
-                            let ptr = node.parent;
-                            while (ptr !== null) {
+                            node.findRoot((ptr) => {
                                 if (checked.has(ptr.getPath())) {
                                     item.picked = true;
                                 } else if (unchecked.has(ptr.getPath())) {
                                     item.picked = false;
-                                }  
-                                ptr = ptr.parent;
-                            }
+                                }
+                            });
                         });
+
+                        quickPick.items.forEach((item) => {
+                            if (item.node.isTest) {
+                                let allChecked: boolean = true;
+                                item.node.dfs((child) : boolean => {
+                                    allChecked &&= (child.item!.picked ?? false);
+                                    return allChecked;
+                                });
+                                item.picked = allChecked;
+                            }
+                        })
 
                         previousSelections.clear();
                         quickPick.items.filter(item => item.picked).forEach((item) => previousSelections.add(item.node.getPath()));
