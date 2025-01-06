@@ -25,9 +25,11 @@ import { BazelTargetManager } from '../models/bazel-target-manager';
 import { WorkspaceStateManager } from '../models/workspace-state-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager, ShellCommand } from '../services/configuration-manager';
+import { Console } from '../services/console';
 import { ShellService } from '../services/shell-service';
 import { TaskService } from '../services/task-service';
 import { showProgress } from '../ui/progress';
+import { QuickPickItemWithTreeNode, RootNode, TreeNode } from './tree-picker';
 import * as vscode from 'vscode';
 
 
@@ -61,6 +63,7 @@ export class UserCommandsController {
     };
 
     private static EXTENSION_COMMANDS = {
+        treepick: 'TreePick',
         multipick: 'MultiPick',
         pick: 'Pick',
         input: 'Input'
@@ -168,6 +171,96 @@ export class UserCommandsController {
             }
         }
 
+        private async buildTestCaseTree(input: string) : Promise<RootNode> {
+            // Evaluate the inner command of the pick
+            const output = await this.resolveCommands(input);
+
+            // specific to pytest format
+            const transformedLabels = output.split('\n').map((label: string) => {
+                return label.replace(/\.py(::[^:\/]+)$/, ".py/$1");
+            });
+
+            const rootNode = new RootNode();
+            for (const label of transformedLabels) {
+                rootNode.createPathToTestCase(label);
+            }
+            return Promise.resolve(rootNode);
+        }
+
+        private flattenTestCaseTree(rootNode: RootNode, picker: (node: TreeNode) => boolean): QuickPickItemWithTreeNode[] {
+            // Make a list of the output
+            const outputList: QuickPickItemWithTreeNode[] = [];
+
+            try {
+                rootNode.dfs((node: TreeNode): boolean => {
+                    if (node.isTest) {
+                        outputList.push({ 'label': node.getPath(), 'picked': picker(node), 'node': node });
+                    } else if (node.isTestCase) {
+                        outputList.push({ 'label': `\u2937${node.value}`, 'picked': picker(node), 'node': node });
+                    }
+                    return true;
+                });
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error flattening tree: ${error}`);
+            }
+
+            return outputList;
+        }
+
+        private async extPickTree(rootNode: RootNode, picker: (node: TreeNode) => boolean): Promise<Set<string>> {
+            try {
+                return new Promise<Set<string>>((resolve, reject) => {
+                    const input: QuickPickItemWithTreeNode[] = this.flattenTestCaseTree(rootNode, picker);
+                    const quickPick = vscode.window.createQuickPick<QuickPickItemWithTreeNode>();
+                    quickPick.canSelectMany = true;
+                    quickPick.title = "Select Test Cases";
+                    quickPick.ignoreFocusOut = true;
+                    quickPick.items = input;
+                    quickPick.selectedItems = input.filter(item => item.picked);
+
+                    let previousSelections: Set<string> = new Set<string>(input.filter(item => item.picked).map(item => item.node.getPath()));
+
+                    quickPick.onDidChangeSelection((selectedItems: readonly QuickPickItemWithTreeNode[]) => {
+                        const selectedPaths = new Set<string>(selectedItems.map(item => item.node.getPath()));
+
+                        const unchecked = new Set<string>([...previousSelections].filter((item) => !selectedPaths.has(item)));
+                        const checked = new Set<string>([...selectedPaths].filter((item) => !previousSelections.has(item)));
+
+                        quickPick.items.forEach((item) => {
+                            const node = item.node;
+                            if (checked.has(node.getPath())) {
+                                item.picked = true;
+                            } else if (unchecked.has(node.getPath())) {
+                                item.picked = false;
+                            }
+                            let ptr = node.parent;
+                            while (ptr !== null) {
+                                if (checked.has(ptr.getPath())) {
+                                    item.picked = true;
+                                } else if (unchecked.has(ptr.getPath())) {
+                                    item.picked = false;
+                                }  
+                                ptr = ptr.parent;
+                            }
+                        });
+
+                        previousSelections.clear();
+                        quickPick.items.filter(item => item.picked).forEach((item) => previousSelections.add(item.node.getPath()));
+                        quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+                    });
+                    quickPick.onDidAccept(() => {
+                        resolve(new Set<string>([...quickPick.selectedItems].map(item => item.node.getPath())));
+                        quickPick.hide();
+                    });
+
+                    quickPick.show();
+                });
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error picking tree: ${error}`);
+                return Promise.reject(error);
+            }
+        }
+
         private async extPickMany(input: vscode.QuickPickItem[]): Promise<string[]> {
             try {
                 return vscode.window.showQuickPick(
@@ -212,8 +305,16 @@ export class UserCommandsController {
                         const extCommand = match[1];
                         const extArgs = match[2];
                         let evalRes = '';
-                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.multipick) {
-                            let state = this.pickStateMap[output];
+                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.treepick) {
+                            let state = this.pickStateMap[output] ?? {};
+                            const rootNode: RootNode = await this.buildTestCaseTree(extArgs);
+                            const paths: Set<string> = await this.extPickTree(rootNode, (node: TreeNode) => state[node.getPath()] ?? false);
+                            evalRes = [...paths].join("\n");
+                            state = {};
+                            paths.forEach((path) => state[path] = true);
+                            this.pickStateMap[output] = state;
+                        } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.multipick) {
+                            let state = this.pickStateMap[output] ?? {};
                             const input = await this.buildPickList(extArgs, (label) => state[label] ?? false);
                             const labels = await this.extPickMany(input);
                             evalRes = labels.join("\n");
